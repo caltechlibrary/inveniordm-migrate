@@ -92,11 +92,11 @@ for key in keys:
             "name": creator["name"]["given"] + " " + creator["name"]["family"],
             "type": "Personal",
             "identifiers": {"Orcid": "9999-9999-9999-9999"},
-                }
+        }
         crea.append(cre)
     new["creators"] = crea
     new["language"] = "eng"
-    new['publication_date'] = existing['datestamp']
+    new["publication_date"] = existing["datestamp"]
     if "abstract" in existing:
         new["descriptions"] = [
             {"description": existing["abstract"], "type": "Abstract", "lang": "eng"}
@@ -109,9 +109,9 @@ for key in keys:
                 "lang": "eng",
             }
         ]
-    #new["community"] = {
-        #"primary": "Caltech Oral Histories",
-    #}
+    # new["community"] = {
+    # "primary": "Caltech Oral Histories",
+    # }
     new["licenses"] = [
         {
             "license": "Creative Commons Attribution NonCommercial",
@@ -120,11 +120,11 @@ for key in keys:
             "scheme": "CC-BY-NC",
         }
     ]
-    if 'keywords' in existing:
+    if "keywords" in existing:
         subjects = []
-        keywords = existing['keywords'].split(',')
+        keywords = existing["keywords"].split(",")
         for key in keywords:
-            subjects.append({'subject':key,'identifier':key,'scheme':"no-scheme"})
+            subjects.append({"subject": key, "identifier": key, "scheme": "no-scheme"})
     new["subjects"] = subjects
     new["identifiers"] = {"DOI": "10.9999/rdm.9999999"}
     pdf_url = existing["documents"][0]["files"][0]["url"]

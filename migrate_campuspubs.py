@@ -93,35 +93,36 @@ for key in keys:
             cre = {
                 "name": creator["name"]["given"] + " " + creator["name"]["family"],
                 "type": "Personal",
-                }
+            }
             crea.append(cre)
     if "corp_creators" in existing:
         for creator in existing["corp_creators"]["items"]:
             if creator == "California Institute of Technology":
                 cre = {
-                "name": creator["name"],
-                "type": "Organizational",
-                "identifiers": {"ROR": "05dxps055"},
+                    "name": creator["name"],
+                    "type": "Organizational",
+                    "identifiers": {"ROR": "05dxps055"},
                 }
             else:
-                cre = {
-                "name": creator["name"],
-                "type": "Organizational"}
+                cre = {"name": creator["name"], "type": "Organizational"}
             crea.append(cre)
     new["creators"] = crea
     if "contributors" in existing:
         for contributor in existing["contributors"]["items"]:
-            cont =  {
-                "name": contributor["name"]["given"] + " " + contributor["name"]["family"],
-                "type": "Personal"}
-            if contributor["type"] == 'http://coda.library.caltech.edu/ARA':
-                #Incorrect - Filler
-                cont['role'] = 'DataCurator'
+            cont = {
+                "name": contributor["name"]["given"]
+                + " "
+                + contributor["name"]["family"],
+                "type": "Personal",
+            }
+            if contributor["type"] == "http://coda.library.caltech.edu/ARA":
+                # Incorrect - Filler
+                cont["role"] = "DataCurator"
             else:
-                #Incorrect - Filler
-                cont['role'] = 'ProjectManager'
+                # Incorrect - Filler
+                cont["role"] = "ProjectManager"
     new["language"] = "eng"
-    new['publication_date'] = existing['date']
+    new["publication_date"] = existing["date"]
     if "abstract" in existing:
         new["descriptions"] = [
             {"description": existing["abstract"], "type": "Abstract", "lang": "eng"}
@@ -134,9 +135,9 @@ for key in keys:
                 "lang": "eng",
             }
         ]
-    #new["community"] = {
-        #"primary": "Caltech Oral Histories",
-    #}
+    # new["community"] = {
+    # "primary": "Caltech Oral Histories",
+    # }
     new["licenses"] = [
         {
             "license": "Creative Commons Attribution NonCommercial",
@@ -145,11 +146,11 @@ for key in keys:
             "scheme": "CC-BY-NC",
         }
     ]
-    if 'keywords' in existing:
+    if "keywords" in existing:
         subjects = []
-        keywords = existing['keywords'].split(',')
+        keywords = existing["keywords"].split(",")
         for key in keywords:
-            subjects.append({'subject':key,'identifier':key,'scheme':"no-scheme"})
+            subjects.append({"subject": key, "identifier": key, "scheme": "no-scheme"})
     new["subjects"] = subjects
     new["identifiers"] = {"DOI": "10.9999/rdm.9999999"}
     pdf_url = existing["documents"][0]["files"][0]["url"]

@@ -1,58 +1,171 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2019-2021 CERN.
-# Copyright (C) 2019-2021 Northwestern University.
-# Copyright (C)      2021 TU Wien.
-#
-# Invenio-RDM-Records is free software; you can redistribute it and/or modify
-# it under the terms of the MIT License; see LICENSE file for more details.
 
-"""Migrate DataCite metadata into InvenioRDM data model."""
+# Note: To use the 'upload' functionality of this file, you must:
+#   $ pip install twine
 
+import io
 import os
+import glob
+import sys, json
+from shutil import rmtree
 
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup, Command
 
 
-tests_require = [
-    "pytest-invenio>=1.4.1,<2.0.0",
+def read(fname):
+    with open(fname, mode="r", encoding="utf-8") as f:
+        src = f.read()
+    return src
+
+
+def read_requirements():
+    """Parse requirements from requirements.txt."""
+    reqs_path = os.path.join(".", "requirements.txt")
+    with open(reqs_path, "r") as f:
+        requirements = [line.rstrip() for line in f]
+    return requirements
+
+
+codemeta_json = "codemeta.json"
+
+
+def package_files(package, directory):
+    os.chdir(package)
+    paths = glob.glob(directory + "/**", recursive=True)
+    os.chdir("..")
+    return paths
+
+
+# Let's pickup as much metadata as we need from codemeta.json
+with open(codemeta_json, mode="r", encoding="utf-8") as f:
+    src = f.read()
+    meta = json.loads(src)
+
+# Let's make our symvar string
+version = meta["version"]
+
+# Now we need to pull and format our author, author_email strings.
+author = ""
+author_email = ""
+for obj in meta["author"]:
+    given = obj["givenName"]
+    family = obj["familyName"]
+    email = obj["email"]
+    if len(author) == 0:
+        author = given + " " + family
+    else:
+        author = author + ", " + given + " " + family
+    if len(author_email) == 0:
+        author_email = email
+    else:
+        author_email = author_email + ", " + email
+description = meta["description"]
+url = meta["codeRepository"]
+download = meta["downloadUrl"]
+lic = meta["license"]
+name = meta["name"]
+
+REQUIRES_PYTHON = ">=3.7.0"
+
+# What packages are required for this module to be executed?
+REQUIRED = [
+    "requests",
+    "progressbar2",
+    "caltechdata_api>=0.3.0",
+    "py_dataset>=1.0.1",
 ]
 
+# What packages are optional?
+EXTRAS = {}
 
-install_requires = [
-    "datacite>=1.1.1",
-    "invenio-drafts-resources>=0.11.5,<0.12.0",
-    "invenio-vocabularies>=0.5.3,<0.6.0",
-]
+# The rest you shouldn't have to touch too much :)
+# ------------------------------------------------
+# Except, perhaps the License and Trove Classifiers!
+# If you do change the License, remember to change the Trove Classifier for that!
 
-packages = find_packages()
+here = os.path.abspath(os.path.dirname(__file__))
+
+# Import the README and use it as the long-description.
+# Note: this will only work if 'README.md' is present in your MANIFEST.in file!
+try:
+    with io.open(os.path.join(here, "README.md"), encoding="utf-8") as f:
+        long_description = "\n" + f.read()
+except FileNotFoundError:
+    long_description = description
+
+# Load the package's __version__.py module as a dictionary.
+about = {}
+if not version:
+    with open(os.path.join(here, NAME, "__version__.py")) as f:
+        exec(f.read(), about)
+else:
+    about["__version__"] = version
 
 
+class UploadCommand(Command):
+    """Support setup.py upload."""
+
+    description = "Build and publish the package."
+    user_options = []
+
+    @staticmethod
+    def status(s):
+        """Prints things in bold."""
+        print("\033[1m{0}\033[0m".format(s))
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        try:
+            self.status("Removing previous builds…")
+            rmtree(os.path.join(here, "dist"))
+        except OSError:
+            pass
+
+        self.status("Building Source and Wheel distribution…")
+        os.system("{0} setup.py sdist bdist_wheel ".format(sys.executable))
+
+        self.status("Uploading the package to PyPI via Twine…")
+        os.system("twine upload dist/*")
+
+        sys.exit()
+
+
+# Where the magic happens:
 setup(
-    name="inveniordm-migrate",
-    version="0.0.1",
-    description=__doc__,
-    keywords="invenio data model",
-    license="MIT",
-    author="Tom Morrell",
-    author_email="tmorrell@caltech.edug",
-    url="https://github.com/caltechlibrary/inveniordm-migrate",
-    packages=packages,
-    zip_safe=False,
-    include_package_data=True,
-    platforms="any",
-    install_requires=install_requires,
-    tests_require=tests_require,
+    name=name,
+    version=version,
+    description=description,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    author=author,
+    author_email=author_email,
+    python_requires=REQUIRES_PYTHON,
+    url=url,
+    packages=find_packages(exclude=("tests",)),
+    # If your package is a single module, use this instead of 'packages':
+    # py_modules=['mypackage'],
+    # entry_points={
+    #     'console_scripts': ['mycli=mymodule:cli'],
+    # },
+    install_requires=REQUIRED,
+    extras_require=EXTRAS,
+    license=lic,
     classifiers=[
-        "Environment :: Web Environment",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
+        # Trove classifiers
+        # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+        "License :: OSI Approved :: BSD License",
         "Programming Language :: Python",
-        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
-        "Topic :: Software Development :: Libraries :: Python Modules",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Development Status :: 3 - Alpha",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
     ],
+    # $ setup.py publish support.
+    cmdclass={"upload": UploadCommand},
 )

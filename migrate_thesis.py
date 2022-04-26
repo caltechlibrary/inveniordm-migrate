@@ -55,12 +55,21 @@ def write_records(fnames):
                 creator["nameYype"] = "Personal"
             else:
                 creator["nameType"] = "Organizational"
+        for creator in metadata["contributors"]:
+            name = creator["name"]
+            if "," in name:
+                split = name.split(",")
+                creator["familyName"] = split[0]
+                creator["givenName"] = split[1]
+                creator["nameYype"] = "Personal"
+            else:
+                creator["nameType"] = "Organizational"
         if "funding" in metadata:
             funding = metadata["funding"]
             for fund in funding:
                 if "award" in fund:
                     if name not in fund["award"]:
-                        fund["award"]["name"] = "None"
+                        fund["award"]["title"] = "None"
         metadata["types"]["resourceType"] = "Thesis"
 
         print(metadata)

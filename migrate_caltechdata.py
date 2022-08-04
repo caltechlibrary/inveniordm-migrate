@@ -1,5 +1,6 @@
 import os
 import json
+import s3fs
 import sys
 import requests
 from caltechdata_api import decustomize_schema, caltechdata_write
@@ -9,75 +10,69 @@ from progressbar import progressbar
 from py_dataset import dataset
 
 
-def download_file(url, fname):
-    r = requests.get(url, stream=True)
-    if os.path.isfile(fname):
-        print("Using already downloaded file")
-        return fname
-    elif r.status_code == 403:
-        print(
-            "It looks like this file is embargoed.  We can't access until after the embargo is lifted"
-        )
-        return None
-    else:
-        with open(fname, "wb") as f:
-            total_length = int(r.headers.get("content-length"))
-            for chunk in progressbar(
-                r.iter_content(chunk_size=1024), max_value=(total_length / 1024) + 1
-            ):
-                if chunk:
-                    f.write(chunk)
-                    # f.flush()
-        return fname
-
-
-def read_records(data):
-    # read records in 'hits' structure
-    for record in data:
-        rid = str(record["id"])
-        metadata = record["metadata"]
-        files = []
-        if "electronic_location_and_access" in metadata:
-            for erecord in metadata["electronic_location_and_access"]:
-                url = erecord["uniform_resource_identifier"]
-                fname = erecord["electronic_name"][0]
-                f = download_file(url, fname)
-                if f != None:
-                    files.append(f)
-        else:
-            print("No Files")
-        metadata = decustomize_schema(
-            metadata, pass_emails=True, pass_owner=True, schema="43"
-        )
-        # Need to figure out identifiers
-        metadata.pop("identifiers")
-        # Separate family and given names
-        for creator in metadata["creators"]:
-            name = creator["name"]
-            print(name)
-            if "," in name:
-                print("Yes")
-                split = name.split(",")
-                creator["familyName"] = split[0]
-                creator["givenName"] = split[1]
-                creator["nameYype"] = "Personal"
+def check_identifiers(identifiers):
+    cd_id = None
+    doi = None
+    for idv in identifiers:
+        typev = idv["identifierType"]
+        if typev == "CaltechDATA_Identifier":
+            if not cd_id:
+                cd_id = idv["identifier"]
             else:
-                creator["nameType"] = "Organizational"
-        print(metadata)
-        doi = caltechdata_write(
-            metadata, schema="43", pilot=True, files=files, publish=True
-        )
-        print(doi)
+                print("Multiple CD identifiers, something is wrong")
+                exit()
+        if typev == "DOI":
+            if not doi:
+                doi = idv["identifier"]
+            else:
+                print("Multiple DOI identifiers, something is wrong")
+                exit()
+    if not cd_id:
+        print("NO CD identifiers, something is wrong")
+        exit()
+    if not doi:
+        print("NO DOI identifiers, something is wrong")
+        exit()
+    return cd_id, doi
 
 
-api_url = "https://data.caltech.edu/api/records/"
+def write_record(metadata, files, s3):
+    identifiers = metadata.pop("identifiers")
+    cd_id, doi = check_identifiers(identifiers)
+    metadata["id"] = cd_id
+    metadata["pids"] = {
+        "doi": {"identifier": doi, "provider": "datacite", "client": "caltech.library"}
+    }
+    # Separate family and given names
+    for creator in metadata["creators"]:
+        name = creator["name"]
+        if "," in name:
+            split = name.split(",")
+            creator["familyName"] = split[0]
+            creator["givenName"] = split[1]
+            creator["nameYype"] = "Personal"
+        else:
+            creator["nameType"] = "Organizational"
+    doi = caltechdata_write(
+        metadata, schema="43", pilot=True, files=files, publish=False,
+        production=True, s3=s3
+    )
+    print(doi)
+    exit()
 
-# Get the existing records
-data = requests.get(api_url).json()
 
-read_records(data["hits"]["hits"])
-# if we have more pages of data
-while "next" in data["links"]:
-    data = requests.get(data["links"]["next"]).json()
-
-    read_records(data["hits"]["hits"])
+bucket = "caltechdata-backup"
+path = "caltechdata"
+s3 = s3fs.S3FileSystem()
+records = s3.ls(f"{bucket}/{path}")
+for record in records:
+    if "10.22002" not in record:
+        files = s3.ls(record)
+        for f in files:
+            if "datacite.json" in f:
+                files.remove(f)
+            if "raw.json" in f:
+                files.remove(f)
+        with s3.open(f"{record}/datacite.json", "r") as j:
+            metadata = json.load(j)
+            write_record(metadata, files, s3)

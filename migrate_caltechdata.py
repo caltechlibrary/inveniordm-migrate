@@ -53,26 +53,32 @@ def write_record(metadata, files, s3):
             creator["nameYype"] = "Personal"
         else:
             creator["nameType"] = "Organizational"
-    doi = caltechdata_write(
+    idv = caltechdata_write(
         metadata, schema="43", pilot=True, files=files, publish=False,
         production=True, s3=s3
     )
-    print(doi)
-    exit()
+    return cd_id, idv
 
 
 bucket = "caltechdata-backup"
 path = "caltechdata"
 s3 = s3fs.S3FileSystem()
 records = s3.ls(f"{bucket}/{path}")
+size = 0
+record_ids = {}
 for record in records:
+    print(record)
     if "10.22002" not in record:
         files = s3.ls(record)
+        upload = []
         for f in files:
-            if "datacite.json" in f:
-                files.remove(f)
-            if "raw.json" in f:
-                files.remove(f)
+            if "datacite.json" not in f and 'raw.json' not in f:
+                upload.append(f)
+                size += s3.info(f)["Size"]
         with s3.open(f"{record}/datacite.json", "r") as j:
             metadata = json.load(j)
-            write_record(metadata, files, s3)
+            cd_id, new_id = write_record(metadata, upload, s3)
+            record_ids[cd_id] = new_id
+            with open("new_ids.json", "w") as outfile:
+                json.dump(record_ids, outfile)
+        print('Total Size: ',size/(10**9))

@@ -65,20 +65,23 @@ path = "caltechdata"
 s3 = s3fs.S3FileSystem()
 records = s3.ls(f"{bucket}/{path}")
 size = 0
-record_ids = {}
+with open("new_ids.json", "r") as infile:
+    record_ids = json.load(infile)
 for record in records:
-    print(record)
     if "10.22002" not in record:
-        files = s3.ls(record)
-        upload = []
-        for f in files:
-            if "datacite.json" not in f and 'raw.json' not in f:
-                upload.append(f)
-                size += s3.info(f)["Size"]
-        with s3.open(f"{record}/datacite.json", "r") as j:
-            metadata = json.load(j)
-            cd_id, new_id = write_record(metadata, upload, s3)
-            record_ids[cd_id] = new_id
-            with open("new_ids.json", "w") as outfile:
-                json.dump(record_ids, outfile)
-        print('Total Size: ',size/(10**9))
+        idv = record.split('caltechdata/')[1]
+        if idv not in record_ids:
+            print(idv)
+            files = s3.ls(record)
+            upload = []
+            for f in files:
+                if "datacite.json" not in f and 'raw.json' not in f:
+                    upload.append(f)
+                    size += s3.info(f)["Size"]
+            with s3.open(f"{record}/datacite.json", "r") as j:
+                metadata = json.load(j)
+                cd_id, new_id = write_record(metadata, upload, s3)
+                record_ids[cd_id] = new_id
+                with open("new_ids.json", "w") as outfile:
+                    json.dump(record_ids, outfile)
+            print('Total Size: ',size/(10**9))

@@ -1,5 +1,5 @@
 import os
-import json
+import json, csv
 import s3fs
 import sys
 import requests
@@ -9,6 +9,17 @@ from datetime import datetime, timedelta
 from progressbar import progressbar
 from py_dataset import dataset
 
+#Load affiliation mapping globally so we only do this once
+AFF_MAPPING = {}
+with open('ROR_Affiliations.csv','r',encoding='utf-8-sig') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        AFF_MAPPING[row['affiliation']] = row['ROR_Affiliation']
+AFF_SPLIT = {}
+with open('split_affiliations.csv','r',encoding='utf-8-sig') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        AFF_SPLIT[row['affiliation']] = row
 
 def check_identifiers(identifiers):
     cd_id = None
@@ -70,6 +81,7 @@ def grid_to_ror(grid):
     ror = results.json()['items'][0]['id']
     return(ror)
 
+
 def clean_person(person):
     #For creators or contributors
     name = person["name"]
@@ -77,17 +89,67 @@ def clean_person(person):
         split = name.split(",")
         person["familyName"] = split[0]
         person["givenName"] = split[1:]
-        person["nameYype"] = "Personal"
+        person["nameType"] = "Personal"
     else:
         person["nameType"] = "Organizational"
     if 'nameIdentifiers' in person:
+        identifiers = []
         for identifier in person['nameIdentifiers']:
+            drop = False
             if 'nameIdentifierScheme' in identifier:
                 if identifier['nameIdentifierScheme'] == 'GRID':
                     identifier['nameIdentifier'] = grid_to_ror(identifier['nameIdentifier'])
                     identifier['nameIdentifierScheme'] = 'ROR'
-    #if 'affiliations' in name:
-    #    for aff in name['affiliations']:
+                if identifier['nameIdentifierScheme'] != 'researcherid':
+                    drop = True
+            if drop == False:
+                identifiers.append(identifier)
+        person['nameIdentifiers'] = identifiers
+    if 'affiliation' in person:
+        full = []
+        for aff in person['affiliation']:
+            a_name = aff['name']
+            print(a_name)
+            if a_name in AFF_SPLIT:
+                #We need to split an affiliation
+                mapping = AFF_SPLIT[a_name]
+                full.append({'name':mapping['first_affiliation'],
+                        "affiliationIdentifier": mapping['first_ROR'],
+                        "affiliationIdentifierScheme": "ROR"})
+                if 'second_affiliation' in mapping:
+                    full.append({'name':mapping['second_affiliation'],
+                        "affiliationIdentifier": mapping['second_ROR'],
+                        "affiliationIdentifierScheme": "ROR"})
+                if 'third_affiliation' in mapping:
+                    full.append({'name':mapping['third_affiliation'],
+                        "affiliationIdentifier": mapping['third_ROR'],
+                        "affiliationIdentifierScheme": "ROR"})
+                if 'fourth_affiliation' in mapping:
+                    full.append({'name':mapping['fourth_affiliation'],
+                        "affiliationIdentifier": mapping['fourth_ROR'],
+                        "affiliationIdentifierScheme": "ROR"})
+                if 'fifth_affiliation' in mapping:
+                    full.append({'name':mapping['fifth_affiliation'],
+                        "affiliationIdentifier": mapping['fifth_ROR'],
+                        "affiliationIdentifierScheme": "ROR"})
+                if 'sixth_affiliation' in mapping:
+                    full.append({'name':mapping['sixth_affiliation'],
+                        "affiliationIdentifier": mapping['sixth_ROR'],
+                        "affiliationIdentifierScheme": "ROR"})
+            elif a_name in AFF_MAPPING:
+                #We just add a ROR
+                if AFF_MAPPING[a_name] == '':
+                    full.append({'name':a_name})
+                else:
+                    full.append({'name':a_name,
+                    "affiliationIdentifier" : AFF_MAPPING[a_name],
+                    "affiliationIdentifierScheme" : "ROR"})
+            else:
+                print(f'{aff} is missing')
+                exit()
+        print(full)
+        person['affiliation'] = full
+
     return person
 
 def write_record(metadata, files, s3):
@@ -135,6 +197,12 @@ def write_record(metadata, files, s3):
         else:
             dates.append(date)
     metadata['dates'] = dates
+    if 'fundingReferences' in metadata:
+        for f in metadata['fundingReferences']:
+            if 'funderIdentifierType' in f:
+                if f['funderIdentifierType'] == 'GRID':
+                    f['funderIdentifier'] = grid_to_ror(f['funderIdentifier'])
+                    f['funderIdentifierType'] = 'ROR'
     idv = caltechdata_write(
         metadata, schema="43", pilot=True, files=files, publish=True,
         production=True, s3=s3

@@ -115,6 +115,8 @@ def clean_person(person):
                     identifier["nameIdentifierScheme"] = "ROR"
                 if identifier["nameIdentifierScheme"] == "researcherid":
                     drop = True
+                if identifier["nameIdentifierScheme"] == "ResearcherID":
+                    drop = True
             if drop == False:
                 identifiers.append(identifier)
         person["nameIdentifiers"] = identifiers
@@ -213,22 +215,54 @@ def write_record(metadata, files, s3):
     metadata["identifiers"] = identifiers
     # metadata["id"] = cd_id
 
+    contributor_string = ""
     # Separate family and given names
     for creator in metadata["creators"]:
         creator = clean_person(creator)
     if "contributors" in metadata:
         for c in metadata["contributors"]:
             c = clean_person(c)
+            if "contributorEmail" in c:
+                contributor_string = (
+                    f"Contact person: {c['name']} {c['contributorEmail']}"
+                )
     descriptions = []
     abstract = False
     for description in metadata["descriptions"]:
         if description["descriptionType"] == "Abstract":
             abstract = True
         if description["description"].startswith("<br>Cite this record as:") == False:
-            descriptions.append(description)
+            if description["description"].startswith("<br>Unique Views:") == False:
+                descriptions.append(description)
     if abstract == False:
         # We always want an abstract, if not set pick the first description
         descriptions[0]["descriptionType"] = "Abstract"
+    # Other metadata that we're currently puting in descriptions field
+    if "publications" in metadata:
+        pub = metadata.pop("publications")
+        outstring = "Related Publication:<br><br>"
+        if "publicationTitle" in pub:
+            outstring += f'{pub["publicationTitle"]}<br><br>'
+        if "publicationAuthors" in pub:
+            for author in pub["publicationAuthors"]:
+                if "publicationAuthorAffiliation" in author:
+                    outstring += f"{author['publicationAuthorName']} {author['publicationAuthorAffiliation']}<br><br>"
+                else:
+                    outstring += f"{author['publicationAuthorName']}<br><br>"
+        if "publicationPublisher" in pub:
+            outstring += f"{pub['publicationPublisher']}<br><br>"
+        if "publicationPublicationDate" in pub:
+            outstring += f"{pub['publicationPublicationDate']}<br><br>"
+        if "publicationIDs" in pub:
+            pub_doi = pub["publicationIDs"]["publicationIDNumber"]
+            outstring += f"https://doi.org/{pub_doi}<br><br>"
+        if "publicationLanguage" in pub:
+            outstring += f"{pub['publicationLanguage']}"
+        descriptions.append({"description": outstring, "descriptionType": "Other"})
+    if contributor_string != "":
+        descriptions.append(
+            {"description": contributor_string, "descriptionType": "Other"}
+        )
     metadata["descriptions"] = descriptions
     if "subjects" in metadata:
         subjects = metadata["subjects"]

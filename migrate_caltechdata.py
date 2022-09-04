@@ -24,6 +24,14 @@ with open("split_affiliations.csv", "r", encoding="utf-8-sig") as file:
     for row in reader:
         a = row["affiliation"].strip('"')
         AFF_SPLIT[a] = row
+FUNDER_MAPPING = {}
+FUNDER_NAME = {}
+with open("funder_RORs.csv", "r", encoding="utf-8-sig") as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        a = row["affiliation"].strip('"')
+        FUNDER_MAPPING[a] = row["ROR_Affiliation"]
+        FUNDER_NAME[a] = row["organizationLookupName_Affiliation"]
 
 
 def check_identifiers(identifiers):
@@ -86,11 +94,32 @@ def grid_to_ror(grid):
     # We manually handle some incorrect/redundant GRID Ids
     if grid == "grid.451078.f":
         ror = "https://ror.org/00hm6j694"
+    elif grid == 'grid.5805.8':
+        ror = "https://ror.org/02en5vm52"
     else:
         url = f"https://api.ror.org/organizations?query.advanced=external_ids.GRID.all:{grid}"
         results = requests.get(url)
         ror = results.json()["items"][0]["id"]
     return ror
+
+
+def add_affiliation(full, affiliation, ror):
+    if affiliation != "":
+        if ror != "":
+            full.append(
+                {
+                    "name": affiliation,
+                    "affiliationIdentifier": ror,
+                    "affiliationIdentifierScheme": "ROR",
+                }
+            )
+        else:
+            full.append(
+                {
+                    "name": affiliation,
+                }
+            )
+    return full
 
 
 def clean_person(person):
@@ -107,7 +136,13 @@ def clean_person(person):
         identifiers = []
         for identifier in person["nameIdentifiers"]:
             drop = False
-            if "nameIdentifierScheme" in identifier:
+            #Handle incomplete TCCON records
+            if 'grid' in identifier["nameIdentifier"]:
+                identifier["nameIdentifier"] = grid_to_ror(
+                        identifier["nameIdentifier"]
+                    )
+                identifier["nameIdentifierScheme"] = "ROR"
+            elif "nameIdentifierScheme" in identifier:
                 if identifier["nameIdentifierScheme"] == "GRID":
                     identifier["nameIdentifier"] = grid_to_ror(
                         identifier["nameIdentifier"]
@@ -127,53 +162,24 @@ def clean_person(person):
             if a_name in AFF_SPLIT:
                 # We need to split an affiliation
                 mapping = AFF_SPLIT[a_name]
-                full.append(
-                    {
-                        "name": mapping["first_affiliation"],
-                        "affiliationIdentifier": mapping["first_ROR"],
-                        "affiliationIdentifierScheme": "ROR",
-                    }
+                full = add_affiliation(
+                    full, mapping["first_affiliation"], mapping["first_ROR"]
                 )
-                if mapping["second_affiliation"] != "":
-                    full.append(
-                        {
-                            "name": mapping["second_affiliation"],
-                            "affiliationIdentifier": mapping["second_ROR"],
-                            "affiliationIdentifierScheme": "ROR",
-                        }
-                    )
-                if mapping["third_affiliation"] != "":
-                    full.append(
-                        {
-                            "name": mapping["third_affiliation"],
-                            "affiliationIdentifier": mapping["third_ROR"],
-                            "affiliationIdentifierScheme": "ROR",
-                        }
-                    )
-                if mapping["fourth_affiliation"] != "":
-                    full.append(
-                        {
-                            "name": mapping["fourth_affiliation"],
-                            "affiliationIdentifier": mapping["fourth_ROR"],
-                            "affiliationIdentifierScheme": "ROR",
-                        }
-                    )
-                if mapping["fifth_affiliation"] != "":
-                    full.append(
-                        {
-                            "name": mapping["fifth_affiliation"],
-                            "affiliationIdentifier": mapping["fifth_ROR"],
-                            "affiliationIdentifierScheme": "ROR",
-                        }
-                    )
-                if mapping["sixth_affiliation"] != "":
-                    full.append(
-                        {
-                            "name": mapping["sixth_affiliation"],
-                            "affiliationIdentifier": mapping["sixth_ROR"],
-                            "affiliationIdentifierScheme": "ROR",
-                        }
-                    )
+                full = add_affiliation(
+                    full, mapping["second_affiliation"], mapping["second_ROR"]
+                )
+                full = add_affiliation(
+                    full, mapping["third_affiliation"], mapping["third_ROR"]
+                )
+                full = add_affiliation(
+                    full, mapping["fourth_affiliation"], mapping["fourth_ROR"]
+                )
+                full = add_affiliation(
+                    full, mapping["fifth_affiliation"], mapping["fifth_ROR"]
+                )
+                full = add_affiliation(
+                    full, mapping["sixth_affiliation"], mapping["sixth_ROR"]
+                )
             elif a_name in AFF_MAPPING:
                 # We just add a ROR
                 if AFF_MAPPING[a_name] == "":
@@ -202,8 +208,6 @@ def clean_person(person):
                     )
             else:
                 print(f"{aff} is missing")
-                exit()
-        print(full)
         person["affiliation"] = full
 
     return person
@@ -229,6 +233,7 @@ def write_record(metadata, files, s3):
     descriptions = []
     abstract = False
     for description in metadata["descriptions"]:
+        #description['description'] = description['description'].replace('\n','</p><p>')
         if description["descriptionType"] == "Abstract":
             abstract = True
         if description["description"].startswith("<br>Cite this record as:") == False:
@@ -240,22 +245,22 @@ def write_record(metadata, files, s3):
     # Other metadata that we're currently puting in descriptions field
     if "publications" in metadata:
         pub = metadata.pop("publications")
-        outstring = "Related Publication:<br><br>"
+        outstring = "<p>Related Publication:&lt;/p&gt;</p>"
         if "publicationTitle" in pub:
-            outstring += f'{pub["publicationTitle"]}<br><br>'
+            outstring += f'<p>{pub["publicationTitle"]}&lt;/p&gt;</p>'
         if "publicationAuthors" in pub:
             for author in pub["publicationAuthors"]:
                 if "publicationAuthorAffiliation" in author:
-                    outstring += f"{author['publicationAuthorName']} {author['publicationAuthorAffiliation']}<br><br>"
+                    outstring += f"<p>{author['publicationAuthorName']} {author['publicationAuthorAffiliation']}&lt;/p&gt;</p>"
                 else:
-                    outstring += f"{author['publicationAuthorName']}<br><br>"
+                    outstring += f"<p>{author['publicationAuthorName']}&lt;/p&gt;</p>"
         if "publicationPublisher" in pub:
-            outstring += f"{pub['publicationPublisher']}<br><br>"
+            outstring += f"<p>{pub['publicationPublisher']}&lt;/p&gt;</p>"
         if "publicationPublicationDate" in pub:
-            outstring += f"{pub['publicationPublicationDate']}<br><br>"
+            outstring += f"<p>{pub['publicationPublicationDate']}&lt;/p&gt;</p>"
         if "publicationIDs" in pub:
             pub_doi = pub["publicationIDs"]["publicationIDNumber"]
-            outstring += f"https://doi.org/{pub_doi}<br><br>"
+            outstring += f"<p>https://doi.org/{pub_doi}&lt;/p&gt;</p>"
         if "publicationLanguage" in pub:
             outstring += f"{pub['publicationLanguage']}"
         descriptions.append({"description": outstring, "descriptionType": "Other"})
@@ -266,7 +271,7 @@ def write_record(metadata, files, s3):
     metadata["descriptions"] = descriptions
     if "subjects" in metadata:
         subjects = metadata["subjects"]
-        subjects = clean_subjects(subjects)
+        metadata["subjects"] = clean_subjects(subjects)
         identity = identify_records(subjects)
         if identity == "GPS_Thesis":
             metadata["types"]["resourceType"] = "Map"
@@ -283,6 +288,15 @@ def write_record(metadata, files, s3):
     metadata["dates"] = dates
     if "fundingReferences" in metadata:
         for f in metadata["fundingReferences"]:
+            if "funderName" in f:
+                name = f['funderName']
+                if name in FUNDER_MAPPING:
+                    if FUNDER_NAME[name] == name:
+                        if FUNDER_MAPPING[name] != '':
+                            f["funderIdentifier"] = FUNDER_MAPPING[name]
+                            f["funderIdentifierType"] = "ROR"
+                    else:
+                        print(f'NOT MAPPING FUNDER {name} {FUNDER_NAME[name]}')
             if "funderIdentifierType" in f:
                 if f["funderIdentifierType"] == "GRID":
                     f["funderIdentifier"] = grid_to_ror(f["funderIdentifier"])
@@ -291,7 +305,7 @@ def write_record(metadata, files, s3):
         metadata,
         schema="43",
         pilot=True,
-        files=files,
+        files=[],#files,
         publish=True,
         production=True,
         s3=s3,
@@ -309,9 +323,11 @@ records = s3.ls(f"{bucket}/{path}")
 size = 0
 with open("new_ids.json", "r") as infile:
     record_ids = json.load(infile)
+large = []
 with open("large_records.json", "r") as infile:
-    large = json.load(infile)
-    for l in large:
+    largen = json.load(infile)
+    for l in largen:
+        large.append(l)
         record_ids[l] = "large"
 for record in records:
     if "10.22002" not in record:
@@ -323,11 +339,17 @@ for record in records:
             for f in files:
                 if "datacite.json" not in f and "raw.json" not in f:
                     upload.append(f)
-                    size += s3.info(f)["Size"]
-            with s3.open(f"{record}/datacite.json", "r") as j:
-                metadata = json.load(j)
+                    #size += s3.info(f)["Size"]
+            if idv in large:
+                
+
                 cd_id, new_id = write_record(metadata, upload, s3)
                 record_ids[cd_id] = new_id
-                with open("new_ids.json", "w") as outfile:
-                    json.dump(record_ids, outfile)
-            print("Total Size: ", size / (10**9))
+            else:
+                with s3.open(f"{record}/datacite.json", "r") as j:
+                    metadata = json.load(j)
+                    cd_id, new_id = write_record(metadata, upload, s3)
+                    record_ids[cd_id] = new_id
+            with open("new_ids.json", "w") as outfile:
+                json.dump(record_ids, outfile)
+            #print("Total Size: ", size / (10**9))

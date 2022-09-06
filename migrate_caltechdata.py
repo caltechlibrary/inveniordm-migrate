@@ -213,7 +213,7 @@ def clean_person(person):
     return person
 
 
-def write_record(metadata, files, s3):
+def write_record(metadata, files, s3, file_links):
     identifiers = metadata["identifiers"]
     cd_id, doi, identifiers = check_identifiers(identifiers)
     metadata["identifiers"] = identifiers
@@ -305,9 +305,10 @@ def write_record(metadata, files, s3):
         metadata,
         schema="43",
         pilot=True,
-        files=[],#files,
-        publish=True,
+        files=files,
+        publish=False,
         production=True,
+        file_links = file_links,
         s3=s3,
     )
     return cd_id, idv
@@ -328,7 +329,7 @@ with open("large_records.json", "r") as infile:
     largen = json.load(infile)
     for l in largen:
         large.append(l)
-        record_ids[l] = "large"
+        #record_ids[l] = "large"
 for record in records:
     if "10.22002" not in record:
         idv = record.split("caltechdata/")[1]
@@ -340,16 +341,19 @@ for record in records:
                 if "datacite.json" not in f and "raw.json" not in f:
                     upload.append(f)
                     #size += s3.info(f)["Size"]
-            if idv in large:
-                
-
-                cd_id, new_id = write_record(metadata, upload, s3)
-                record_ids[cd_id] = new_id
-            else:
-                with s3.open(f"{record}/datacite.json", "r") as j:
-                    metadata = json.load(j)
-                    cd_id, new_id = write_record(metadata, upload, s3)
-                    record_ids[cd_id] = new_id
-            with open("new_ids.json", "w") as outfile:
-                json.dump(record_ids, outfile)
+            with s3.open(f"{record}/datacite.json", "r") as j:
+                metadata = json.load(j)
+                if idv in large:
+                    file_links = []
+                    for file in upload:
+                        name = file.split('/')[-1]
+                        link = f'https://renc.osn.xsede.org/ini210004tommorrell/D1.{idv}/{name}'
+                        file_links.append(link)
+                    cd_id, new_id = write_record(metadata, [], s3, file_links)
+                else:
+                    cd_id, new_id = write_record(metadata, upload, s3, [])
+            record_ids[cd_id] = new_id
+            exit()
+            #with open("new_ids.json", "w") as outfile:
+            #    json.dump(record_ids, outfile)
             #print("Total Size: ", size / (10**9))

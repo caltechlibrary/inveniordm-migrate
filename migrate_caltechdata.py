@@ -357,7 +357,6 @@ for record in records:
                 else:
                     cd_id, new_id = write_record(metadata, upload, s3, [])
             record_ids[cd_id] = new_id
-            exit()
-            #with open("new_ids.json", "w") as outfile:
-            #    json.dump(record_ids, outfile)
+            with open("new_ids.json", "w") as outfile:
+                json.dump(record_ids, outfile)
             #print("Total Size: ", size / (10**9))

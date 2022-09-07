@@ -306,16 +306,12 @@ def write_record(metadata, files, s3, file_links):
         schema="43",
         pilot=True,
         files=files,
-        publish=False,
+        publish=True,
         production=True,
         file_links = file_links,
         s3=s3,
     )
     return cd_id, idv
-
-
-# Large file code
-# <a role=\"button\" class=\"ui compact mini button\" href=\"https://renc.osn.xsede.org/ini210004tommorrell/0_D1.20077/Proximal_Colon/S14_02.czi\">\n<i class=\"download icon\"></i>\nDownload\n</a>
 
 bucket = "caltechdata-backup"
 path = "caltechdata"
@@ -329,7 +325,16 @@ with open("large_records.json", "r") as infile:
     largen = json.load(infile)
     for l in largen:
         large.append(l)
-        #record_ids[l] = "large"
+        record_ids[l] = "large"
+# Read in site id file with CaltechDATA IDs
+with open("tccon_active.csv") as infile:
+    site_ids = csv.reader(infile)
+    for row in site_ids:
+    record_ids[row[1]] = "tccon"
+with open("osn_active.csv") as infile:
+    site_ids = csv.reader(infile)
+    for row in site_ids:
+    record_ids[row[0]] = "osn"
 for record in records:
     if "10.22002" not in record:
         idv = record.split("caltechdata/")[1]

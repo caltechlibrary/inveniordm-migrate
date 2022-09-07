@@ -330,11 +330,11 @@ with open("large_records.json", "r") as infile:
 with open("tccon_active.csv") as infile:
     site_ids = csv.reader(infile)
     for row in site_ids:
-    record_ids[row[1]] = "tccon"
+        record_ids[row[1]] = "tccon"
 with open("osn_active.csv") as infile:
     site_ids = csv.reader(infile)
     for row in site_ids:
-    record_ids[row[0]] = "osn"
+        record_ids[row[0]] = "osn"
 for record in records:
     if "10.22002" not in record:
         idv = record.split("caltechdata/")[1]

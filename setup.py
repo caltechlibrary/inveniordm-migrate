@@ -72,7 +72,8 @@ REQUIRES_PYTHON = ">=3.7.0"
 REQUIRED = [
     "requests",
     "progressbar2",
-    "caltechdata_api>=0.3.0",
+    "s3fs",
+    "caltechdata_api>=1.0.0",
     "py_dataset>=1.0.1",
 ]
 

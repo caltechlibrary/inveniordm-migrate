@@ -7,7 +7,6 @@ from caltechdata_api import decustomize_schema, caltechdata_write
 from subprocess import run, Popen, PIPE
 from datetime import datetime, timedelta
 from progressbar import progressbar
-from py_dataset import dataset
 
 # Load affiliation mapping globally so we only do this once
 AFF_MAPPING = {}

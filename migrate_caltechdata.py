@@ -71,11 +71,15 @@ def clean_subjects(subjects):
         if "," in s:
             split = s.split(",")
             for subject in split:
-                cleaned.append({"subject": subject.strip()})
+                cl = subject.strip()
+                if cl != '':
+                    cleaned.append({"subject": cl})
         elif ";" in s:
             split = s.split(";")
             for subject in split:
-                cleaned.append({"subject": subject.strip()})
+                cl = subject.strip()
+                if cl != '':
+                    cleaned.append({"subject": cl})
         else:
             cleaned.append({"subject": s.strip()})
     return cleaned

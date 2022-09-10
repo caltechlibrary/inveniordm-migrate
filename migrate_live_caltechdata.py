@@ -37,7 +37,9 @@ def read_records(data):
         rid = str(record["id"])
         metadata = record["metadata"]
         files = []
-        if "skip_this_for_now" in metadata:#"electronic_location_and_access" in metadata:
+        if (
+            "skip_this_for_now" in metadata
+        ):  # "electronic_location_and_access" in metadata:
             for erecord in metadata["electronic_location_and_access"]:
                 url = erecord["uniform_resource_identifier"]
                 fname = erecord["electronic_name"][0]
@@ -63,8 +65,12 @@ def read_records(data):
                 creator["nameType"] = "Organizational"
         print(metadata)
         doi = caltechdata_write(
-            metadata, schema="43", pilot=True, files=files, publish=True,
-            production=True
+            metadata,
+            schema="43",
+            pilot=True,
+            files=files,
+            publish=True,
+            production=True,
         )
         print(doi)
 

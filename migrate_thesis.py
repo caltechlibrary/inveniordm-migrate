@@ -80,7 +80,7 @@ def write_records(fnames):
         print(doi)
 
 
-random_list = random.sample(range(1, 12000), k=5)
+random_list = random.sample(range(1, 12000), k=50)
 
 r_user = input("Enter your CaltechTHESIS username: ")
 r_pass = getpass.getpass()

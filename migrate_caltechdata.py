@@ -324,11 +324,11 @@ size = 0
 with open("new_ids.json", "r") as infile:
     record_ids = json.load(infile)
 large = []
-with open("large_records.json", "r") as infile:
-    largen = json.load(infile)
-    for l in largen:
-        large.append(l)
-        record_ids[l] = "large"
+#with open("large_records.json", "r") as infile:
+#    largen = json.load(infile)
+#    for l in largen:
+#        large.append(l)
+#        record_ids[l] = "large"
 # Read in site id file with CaltechDATA IDs
 with open("tccon_active.csv") as infile:
     site_ids = csv.reader(infile)
@@ -351,15 +351,15 @@ for record in records:
                     #size += s3.info(f)["Size"]
             with s3.open(f"{record}/datacite.json", "r") as j:
                 metadata = json.load(j)
-                if idv in large:
-                    file_links = []
-                    for file in upload:
-                        name = file.split('/')[-1]
-                        link = f'https://renc.osn.xsede.org/ini210004tommorrell/D1.{idv}/{name}'
-                        file_links.append(link)
-                    cd_id, new_id = write_record(metadata, [], s3, file_links)
-                else:
-                    cd_id, new_id = write_record(metadata, upload, s3, [])
+                #if idv in large:
+                #    file_links = []
+                #    for file in upload:
+                #        name = file.split('/')[-1]
+                #        link = f'https://renc.osn.xsede.org/ini210004tommorrell/D1.{idv}/{name}'
+                #        file_links.append(link)
+                #    cd_id, new_id = write_record(metadata, [], s3, file_links)
+                #else:
+                cd_id, new_id = write_record(metadata, upload, s3, [])
             record_ids[cd_id] = new_id
             with open("new_ids.json", "w") as outfile:
                 json.dump(record_ids, outfile)

@@ -334,10 +334,11 @@ with open("tccon_active.csv") as infile:
     site_ids = csv.reader(infile)
     for row in site_ids:
         record_ids[row[1]] = "tccon"
+osn = []
 with open("osn_active.csv") as infile:
     site_ids = csv.reader(infile)
     for row in site_ids:
-        record_ids[row[0]] = "osn"
+        osn.append(row[0])
 for record in records:
     if "10.22002" not in record:
         idv = record.split("caltechdata/")[1]
@@ -351,16 +352,21 @@ for record in records:
                     #size += s3.info(f)["Size"]
             with s3.open(f"{record}/datacite.json", "r") as j:
                 metadata = json.load(j)
-                #if idv in large:
-                #    file_links = []
-                #    for file in upload:
+                print(osn)
+                if idv in osn:
+                    file_links = []
+                    file_metadata = metadata['electronic_location_and_access']
+                    print(metadata)
+                    for file in file_metadata:
+                        print(file)
+                        exit()
                 #        name = file.split('/')[-1]
                 #        link = f'https://renc.osn.xsede.org/ini210004tommorrell/D1.{idv}/{name}'
                 #        file_links.append(link)
                 #    cd_id, new_id = write_record(metadata, [], s3, file_links)
                 #else:
-                cd_id, new_id = write_record(metadata, upload, s3, [])
-            record_ids[cd_id] = new_id
-            with open("new_ids.json", "w") as outfile:
-                json.dump(record_ids, outfile)
+                #cd_id, new_id = write_record(metadata, upload, s3, [])
+            #record_ids[cd_id] = new_id
+            #with open("new_ids.json", "w") as outfile:
+            #    json.dump(record_ids, outfile)
             #print("Total Size: ", size / (10**9))

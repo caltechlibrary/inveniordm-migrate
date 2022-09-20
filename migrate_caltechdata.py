@@ -362,7 +362,11 @@ for record in records:
                         file_links.append(file.split('">')[0])
                     cd_id, new_id = write_record(metadata, [], s3, file_links)
                 elif idv in tccon:
-                    print(metadata['electronic_location_and_access'])
+                    file_info = metadata['electronic_location_and_access']
+                    file_links = []
+                    for file in file_info:
+                        print(file['electronic_name'])
+                        exit()
                 else:
                     cd_id, new_id = write_record(metadata, upload, s3, [])
             if idv not in tccon:

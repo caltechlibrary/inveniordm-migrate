@@ -216,7 +216,7 @@ def clean_person(person):
     return person
 
 
-def write_record(metadata, files, s3, file_links):
+def write_record(metadata, files, s3, file_links, community=None):
     identifiers = metadata["identifiers"]
     cd_id, doi, identifiers = check_identifiers(identifiers)
     metadata["identifiers"] = identifiers
@@ -309,10 +309,11 @@ def write_record(metadata, files, s3, file_links):
         schema="43",
         pilot=True,
         files=files,
-        publish=False,
+        publish=True,
         production=True,
         file_links = file_links,
         s3=s3,
+        community=community
     )
     return cd_id, idv
 
@@ -362,15 +363,21 @@ for record in records:
                         file_links.append(file.split('">')[0])
                     cd_id, new_id = write_record(metadata, [], s3, file_links)
                 elif idv in tccon:
+                    for idv in metadata['identifiers']:
+                        if idv['identifierType'] == 'DOI':
+                            doi = idv['identifier']
                     file_info = metadata['electronic_location_and_access']
                     file_links = []
                     for file in file_info:
-                        print(file['electronic_name'])
-                        exit()
+                        name = file['electronic_name'][0]
+                        file_links.append(f'https://renc.osn.xsede.org/ini210004tommorrell/{doi}/{name}')
+                    endpoint = "https://renc.osn.xsede.org/"
+                    osn_s3 = s3fs.S3FileSystem(anon=True, client_kwargs={"endpoint_url": endpoint})
+                    community = "2dc56d1f-b31b-4b57-9e4a-835f751ae1e3"
+                    cd_id, new_id = write_record(metadata, [], osn_s3,file_links,community)
                 else:
                     cd_id, new_id = write_record(metadata, upload, s3, [])
-            if idv not in tccon:
-                record_ids[cd_id] = new_id
-                with open("new_ids.json", "w") as outfile:
-                    json.dump(record_ids, outfile)
+            record_ids[cd_id] = new_id
+            with open("new_ids.json", "w") as outfile:
+                json.dump(record_ids, outfile)
             #print("Total Size: ", size / (10**9))

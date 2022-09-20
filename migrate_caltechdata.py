@@ -131,7 +131,7 @@ def clean_person(person):
     if "," in name:
         split = name.split(",")
         person["familyName"] = split[0]
-        person["givenName"] = split[1:]
+        person["givenName"] = split[1]
         person["nameType"] = "Personal"
     else:
         person["nameType"] = "Organizational"
@@ -309,7 +309,7 @@ def write_record(metadata, files, s3, file_links):
         schema="43",
         pilot=True,
         files=files,
-        publish=True,
+        publish=False,
         production=True,
         file_links = file_links,
         s3=s3,
@@ -323,21 +323,16 @@ records = s3.ls(f"{bucket}/{path}")
 size = 0
 with open("new_ids.json", "r") as infile:
     record_ids = json.load(infile)
-large = []
-#with open("large_records.json", "r") as infile:
-#    largen = json.load(infile)
-#    for l in largen:
-#        large.append(l)
-#        record_ids[l] = "large"
-# Read in site id file with CaltechDATA IDs
+tccon = []
 with open("tccon_active.csv") as infile:
     site_ids = csv.reader(infile)
     for row in site_ids:
-        record_ids[row[1]] = "tccon"
+        tccon.append(row[1])
+osn = []
 with open("osn_active.csv") as infile:
     site_ids = csv.reader(infile)
     for row in site_ids:
-        record_ids[row[0]] = "osn"
+        osn.append(row[0])
 for record in records:
     if "10.22002" not in record:
         idv = record.split("caltechdata/")[1]
@@ -351,16 +346,27 @@ for record in records:
                     #size += s3.info(f)["Size"]
             with s3.open(f"{record}/datacite.json", "r") as j:
                 metadata = json.load(j)
-                #if idv in large:
-                #    file_links = []
-                #    for file in upload:
-                #        name = file.split('/')[-1]
-                #        link = f'https://renc.osn.xsede.org/ini210004tommorrell/D1.{idv}/{name}'
-                #        file_links.append(link)
-                #    cd_id, new_id = write_record(metadata, [], s3, file_links)
-                #else:
-                cd_id, new_id = write_record(metadata, upload, s3, [])
-            record_ids[cd_id] = new_id
-            with open("new_ids.json", "w") as outfile:
-                json.dump(record_ids, outfile)
+                if idv in osn:
+                    file_links = []
+                    descriptions = []
+                    print(metadata)
+                    for d in metadata['descriptions']:
+                        if d['description'].startswith('Files available via S3'):
+                            file_text = d['description']
+                        else:
+                            descriptions.append(d)
+                    metadata['descriptions'] = descriptions
+                    files = file_text.split('href="')
+                    #Loop over links in description, skip header text
+                    for file in files[1:]:
+                        file_links.append(file.split('">')[0])
+                    cd_id, new_id = write_record(metadata, [], s3, file_links)
+                elif idv in tccon:
+                    print(metadata['electronic_location_and_access'])
+                else:
+                    cd_id, new_id = write_record(metadata, upload, s3, [])
+            if idv not in tccon:
+                record_ids[cd_id] = new_id
+                with open("new_ids.json", "w") as outfile:
+                    json.dump(record_ids, outfile)
             #print("Total Size: ", size / (10**9))

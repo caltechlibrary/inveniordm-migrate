@@ -3,7 +3,7 @@ import json, csv
 import s3fs
 import sys
 import requests
-from caltechdata_api import decustomize_schema, caltechdata_write
+from caltechdata_api import caltechdata_write
 from subprocess import run, Popen, PIPE
 from datetime import datetime, timedelta
 from progressbar import progressbar
@@ -219,6 +219,9 @@ def clean_person(person):
 def write_record(metadata, files, s3, file_links, community=None):
     identifiers = metadata["identifiers"]
     cd_id, doi, identifiers = check_identifiers(identifiers)
+    for idv in identifiers:
+        if idv['identifierType'] == 'CaltechDATA_Identifier':
+            idv['identifierType'] = 'cdid'
     metadata["identifiers"] = identifiers
     # metadata["id"] = cd_id
 
@@ -307,9 +310,8 @@ def write_record(metadata, files, s3, file_links, community=None):
     idv = caltechdata_write(
         metadata,
         schema="43",
-        pilot=True,
         files=files,
-        publish=True,
+        publish=False,
         production=True,
         file_links = file_links,
         s3=s3,

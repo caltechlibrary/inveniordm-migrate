@@ -51,7 +51,7 @@ AWS_REGION us-east-1
 ```
 
 Then run the command with 
-` ./s5cmd -numworkers 100 run commands.txt >> log2006.txt ; echo Done >> log2006.txt &`.
+`nohup ./s5cmd -numworkers 100 run commands.txt >> & log2017.txt ; echo Done >> & log2017.txt &`.
 You may be able to adjust the numworkers component depending on the OS.
 
 
